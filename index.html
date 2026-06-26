@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>산수 떨어지기</title>
+<style>
+  :root{
+    --mint:#5eead4; --mint2:#2dd4bf;
+    --leaf:#86efac; --leaf2:#34d399;
+    --ink:#063a36;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:"Pretendard","맑은 고딕","Malgun Gothic",sans-serif;
+    background:radial-gradient(circle at 50% -10%, #d1fae5, #a7f3d0 45%, #6ee7b7 100%);
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; user-select:none; color:#064e44;
+  }
+
+  #game{
+    position:relative;
+    width:min(940px, 96vw);
+    height:min(760px, 94vh);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.35), transparent 22%),
+      linear-gradient(180deg, #ecfdf5 0%, #d1fae5 55%, #a7f3d0 100%);
+    border:1px solid rgba(45,212,191,.4);
+    border-radius:22px; overflow:hidden;
+    box-shadow:0 26px 70px rgba(13,148,136,.35), inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  #game::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background-image:radial-gradient(rgba(45,212,191,.18) 1.5px, transparent 1.5px);
+    background-size:34px 34px;
+  }
+
+  #dangerTint{
+    position:absolute; inset:0; pointer-events:none; opacity:0;
+    background:radial-gradient(circle at 50% 110%, rgba(244,63,94,.9), rgba(239,68,68,.45) 55%, rgba(239,68,68,.12) 100%);
+    transition:opacity .8s ease;
+  }
+  #dangerTint.breathing{ animation:breathe 2.6s ease-in-out infinite; }
+  @keyframes breathe{ 0%,100%{ opacity:.45; } 50%{ opacity:.92; } }
+
+  .problem{
+    position:absolute; z-index:2;
+    background:linear-gradient(155deg, #ffffff, #ccfbf1);
+    color:var(--ink);
+    font-size:clamp(18px, 4.4vw, 28px); font-weight:800; letter-spacing:.5px;
+    padding:14px 24px; white-space:nowrap;
+    border-radius:16px; border:1px solid rgba(255,255,255,.8);
+    box-shadow:0 10px 22px rgba(13,148,136,.28), inset 0 1px 0 rgba(255,255,255,.9);
+    transform:translateX(-50%);
+  }
+  .problem.hit{
+    background:linear-gradient(155deg,#bbf7d0,#34d399); color:#053d22;
+    transition:opacity .3s, transform .3s;
+    opacity:0; transform:translateX(-50%) scale(1.4) rotate(6deg);
+  }
+  .problem.miss{
+    background:linear-gradient(155deg,#fecdd3,#f43f5e); color:#4c0519;
+    transition:opacity .25s, transform .25s;
+    opacity:0; transform:translateX(-50%) translateY(12px);
+  }
+
+  #dangerZone{
+    position:absolute; left:0; right:0; height:60px; z-index:1;
+    background:linear-gradient(180deg, transparent, rgba(244,63,94,.16));
+    pointer-events:none;
+  }
+  #ground{
+    position:absolute; left:0; right:0; height:3px; z-index:1;
+    background:linear-gradient(90deg, transparent, rgba(244,63,94,.6), transparent);
+  }
+
+  /* 하단 도크: 정보 + 입력 + 키패드 */
+  #dock{
+    position:absolute; left:0; right:0; bottom:0; z-index:3;
+    background:linear-gradient(180deg, rgba(255,255,255,.55), rgba(236,253,245,.96));
+    border-top:1px solid rgba(45,212,191,.4);
+    backdrop-filter:blur(4px);
+    padding:8px 10px; display:flex; flex-direction:column; gap:7px;
+  }
+
+  #statbar{ display:flex; gap:6px; }
+  .stat{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-width:0; padding:5px 4px;
+    background:rgba(255,255,255,.7);
+    border:1px solid rgba(45,212,191,.35); border-radius:11px;
+  }
+  .stat .k{ font-size:11px; color:#0d9488; font-weight:700; }
+  .stat .v{ font-size:clamp(16px,3.6vw,21px); font-weight:800; color:#064e44; line-height:1.15; }
+  #missStat .v{ color:#e11d48; }
+  #scoreStat .v{ color:#0d9488; }
+
+  #inputRow{ display:flex; align-items:center; gap:7px; }
+  #inputRow .label{ color:#0d9488; font-size:15px; font-weight:800; flex:0 0 auto; }
+  #answer{
+    flex:1; min-width:0; height:46px; font-size:24px; font-weight:800;
+    text-align:center; color:#064e44; caret-color:transparent;
+    background:rgba(255,255,255,.9);
+    border:2px solid var(--mint2); border-radius:12px; outline:none;
+  }
+  #answer:focus{ border-color:#0d9488; box-shadow:0 0 0 4px rgba(45,212,191,.3); }
+
+  .act{
+    flex:0 0 auto; height:46px; min-width:52px; padding:0 14px;
+    font-size:20px; font-weight:800; cursor:pointer; border-radius:12px; border:none;
+  }
+  .act.del{ background:#fde68a; color:#92400e; }
+  .act.ok{ background:linear-gradient(155deg,#22c55e,#10b981); color:#fff; }
+  .act:active{ transform:translateY(1px); }
+
+  #keypad{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+  .key{
+    height:clamp(38px, 6.4vh, 50px);
+    font-size:clamp(18px,3.2vh,22px); font-weight:800; cursor:pointer;
+    color:#065f54; background:rgba(255,255,255,.85);
+    border:1px solid rgba(45,212,191,.45); border-radius:11px;
+    transition:transform .06s, background .1s;
+  }
+  .key:hover{ background:#fff; }
+  .key:active{ transform:translatey(2px) scale(.97); background:#a7f3d0; }
+
+  #combo{
+    position:absolute; top:14px; right:16px; z-index:4;
+    font-size:clamp(15px,3.6vw,18px); font-weight:800; color:#f59e0b;
+    opacity:0; transition:opacity .2s, transform .2s;
+    text-shadow:0 2px 6px rgba(255,255,255,.6);
+  }
+  #combo.show{ opacity:1; }
+
+  #overlay{
+    position:absolute; inset:0; z-index:10;
+    background:rgba(236,253,245,.85); backdrop-filter:blur(7px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:18px; text-align:center; padding:24px;
+  }
+  #overlay h1{
+    font-size:clamp(30px,7vw,46px); font-weight:900;
+    background:linear-gradient(90deg,#14b8a6,#22c55e,#84cc16);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  #overlay p{ font-size:clamp(14px,3.6vw,17px); color:#065f54; line-height:1.7; }
+
+  .ops{ display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .op{
+    width:clamp(72px,20vw,96px); aspect-ratio:1; border-radius:18px; cursor:pointer;
+    background:rgba(255,255,255,.8); border:2px solid rgba(45,212,191,.4);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4px; transition:all .15s; color:#0d9488;
+  }
+  .op .sym{ font-size:clamp(30px,8vw,40px); font-weight:900; }
+  .op .nm{ font-size:12px; font-weight:700; }
+  .op:hover{ transform:translateY(-3px); border-color:var(--mint2); }
+  .op.on{
+    background:linear-gradient(155deg,#5eead4,#10b981);
+    color:#053d2b; border-color:#99f6e4;
+    box-shadow:0 12px 26px rgba(16,185,129,.4);
+  }
+  .op.on .nm{ color:#053d2b; }
+
+  #overlay button.start{
+    font-size:20px; font-weight:800; padding:13px 44px;
+    background:linear-gradient(155deg,#22c55e,#10b981); color:#fff;
+    border:none; border-radius:16px; cursor:pointer;
+    box-shadow:0 12px 28px rgba(16,185,129,.45); transition:transform .12s;
+  }
+  #overlay button.start:hover{ transform:translateY(-2px); }
+  #overlay button.start:disabled{ opacity:.4; cursor:not-allowed; transform:none; }
+  .hint{ font-size:13px; color:#0d9488; }
+  .esc-hint{ font-size:12px; color:#5eb8a8; margin-top:-6px; }
+  .hidden{ display:none !important; }
+
+  #stageMsg{
+    position:absolute; top:42%; left:50%; transform:translate(-50%,-50%);
+    font-size:clamp(36px,9vw,56px); font-weight:900; z-index:5; pointer-events:none; opacity:0;
+    background:linear-gradient(90deg,#14b8a6,#22c55e);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  #stageMsg.show{ animation:pop 1.3s ease; }
+  @keyframes pop{
+    0%{ opacity:0; transform:translate(-50%,-50%) scale(.5); }
+    25%{ opacity:1; transform:translate(-50%,-50%) scale(1.05); }
+    70%{ opacity:1; }
+    100%{ opacity:0; transform:translate(-50%,-50%) scale(1); }
+  }
+
+  /* 모바일: 화면 꽉 채우기 */
+  @media (max-width:720px){
+    body{ align-items:stretch; justify-content:stretch; }
+    #game{ width:100vw; height:100dvh; border-radius:0; border:none; box-shadow:none; }
+  }
+  /* 가로(낮은 높이): 도크 컴팩트 */
+  @media (max-height:480px){
+    #dock{ gap:5px; padding:6px 8px; }
+    .key{ height:clamp(30px,11vh,42px); }
+    #answer,.act{ height:40px; }
+    .stat .k{ font-size:10px; }
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="dangerTint"></div>
+  <div id="dangerZone"></div>
+  <div id="ground"></div>
+  <div id="stageMsg"></div>
+  <div id="combo"></div>
+
+  <div id="dock">
+    <div id="statbar">
+      <div class="stat" id="stageStat"><span class="k">단계</span><span class="v">1</span></div>
+      <div class="stat" id="progStat"><span class="k">진행</span><span class="v">0/10</span></div>
+      <div class="stat" id="scoreStat"><span class="k">점수</span><span class="v">0</span></div>
+      <div class="stat" id="missStat"><span class="k">놓침</span><span class="v">0/5</span></div>
+    </div>
+    <div id="inputRow">
+      <span class="label">정답</span>
+      <input id="answer" type="text" inputmode="none" readonly autocomplete="off" tabindex="-1">
+      <button class="act del" id="delBtn" type="button">⌫</button>
+      <button class="act ok" id="okBtn" type="button">확인</button>
+    </div>
+    <div id="keypad"></div>
+  </div>
+
+  <div id="overlay">
+    <h1>산수 떨어지기</h1>
+    <p>
+      떨어지는 문제의 답을 <b>키패드</b>나 키보드로 입력하고 <b>확인</b>!<br>
+      10문제를 풀면 다음 단계, 단계마다 빨라져요 · 5개 놓치면 끝!
+    </p>
+    <div class="ops" id="opPicker">
+      <div class="op on" data-op="+"><span class="sym">+</span><span class="nm">덧셈</span></div>
+      <div class="op on" data-op="-"><span class="sym">−</span><span class="nm">뺄셈</span></div>
+      <div class="op" data-op="*"><span class="sym">×</span><span class="nm">곱셈</span></div>
+      <div class="op" data-op="/"><span class="sym">÷</span><span class="nm">나눗셈</span></div>
+    </div>
+    <p class="hint">하고 싶은 연산을 골라주세요 (여러 개 선택 가능)</p>
+    <button class="start" id="startBtn">시작하기</button>
+    <p class="esc-hint">게임 중 <b>ESC</b> 를 누르면 이 화면으로 돌아와요</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const game   = document.getElementById('game');
+  const answer = document.getElementById('answer');
+  const overlay= document.getElementById('overlay');
+  const startBtn = document.getElementById('startBtn');
+  const opPicker = document.getElementById('opPicker');
+  const stageMsg = document.getElementById('stageMsg');
+  const comboEl  = document.getElementById('combo');
+  const dangerTint = document.getElementById('dangerTint');
+  const dock     = document.getElementById('dock');
+  const ground   = document.getElementById('ground');
+  const dangerZone = document.getElementById('dangerZone');
+  const keypad   = document.getElementById('keypad');
+  const titleEl  = overlay.querySelector('h1');
+  const descEl   = overlay.querySelector('p');
+
+  const stageV = document.querySelector('#stageStat .v');
+  const progV  = document.querySelector('#progStat .v');
+  const scoreV = document.querySelector('#scoreStat .v');
+  const missV  = document.querySelector('#missStat .v');
+
+  const MENU_TITLE = titleEl.textContent;
+  const MENU_DESC  = descEl.innerHTML;
+
+  const MAX_MISS = 5;
+  const SOLVE_PER_STAGE = 10;
+
+  let selectedOps = ['+','-'];
+  let problems = [];
+  let stage, score, solvedThisStage, missCount, combo;
+  let baseSpeed, spawnInterval, lastSpawn, lastTime;
+  let running = false, rafId = null;
+  let dockH = 0;
+
+  const rand = (min,max) => Math.floor(Math.random()*(max-min+1))+min;
+  const SYM = { '+':'+', '-':'−', '*':'×', '/':'÷' };
+
+  // 키패드 생성: 1~5 / 6~9,0 (5개씩 두줄)
+  ['1','2','3','4','5','6','7','8','9','0'].forEach(d => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'key'; b.textContent = d;
+    b.addEventListener('click', () => addDigit(d));
+    keypad.appendChild(b);
+  });
+
+  // 레이아웃: 도크 높이에 맞춰 바닥선 위치 계산
+  function layout(){
+    dockH = dock.offsetHeight;
+    ground.style.bottom = dockH + 'px';
+    dangerZone.style.bottom = dockH + 'px';
+  }
+  window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', () => setTimeout(layout, 200));
+
+  opPicker.addEventListener('click', (e) => {
+    const op = e.target.closest('.op');
+    if(!op) return;
+    op.classList.toggle('on');
+    selectedOps = [...opPicker.querySelectorAll('.op.on')].map(o => o.dataset.op);
+    startBtn.disabled = selectedOps.length === 0;
+  });
+
+  // 입력 헬퍼 (키패드 + 물리 키보드 공용)
+  function addDigit(d){
+    if(!running) return;
+    if(answer.value.length >= 5) return;
+    answer.value += d;
+  }
+  function backspace(){ if(running) answer.value = answer.value.slice(0,-1); }
+
+  function makeProblem(){
+    const op = selectedOps[rand(0, selectedOps.length-1)];
+    let a, b, ans;
+    if(op === '+'){
+      const top = Math.min(9 + stage*8, 80);
+      a = rand(1, top); b = rand(1, top); ans = a + b;
+    } else if(op === '-'){
+      const top = Math.min(9 + stage*8, 80);
+      a = rand(1, top); b = rand(1, top);
+      if(b > a) [a,b] = [b,a]; ans = a - b;
+    } else if(op === '*'){
+      const top = Math.min(2 + stage, 9);
+      a = rand(2, top); b = rand(2, 9); ans = a * b;
+    } else {
+      const top = Math.min(2 + stage, 9);
+      b = rand(2, 9); ans = rand(2, top); a = b * ans;
+    }
+    return { text:`${a} ${SYM[op]} ${b}`, ans };
+  }
+
+  function spawn(){
+    const data = makeProblem();
+    const el = document.createElement('div');
+    el.className = 'problem'; el.textContent = data.text;
+    game.appendChild(el);
+    const w = el.offsetWidth, margin = w/2 + 10;
+    el.style.left = rand(margin, game.clientWidth - margin) + 'px';
+    el.style.top  = '-50px';
+    problems.push({ el, answer:data.ans, y:-50,
+      speed: baseSpeed * (0.85 + Math.random()*0.4), dead:false });
+  }
+
+  function showStageMsg(txt){
+    stageMsg.textContent = txt;
+    stageMsg.classList.remove('show');
+    void stageMsg.offsetWidth;
+    stageMsg.classList.add('show');
+  }
+
+  function flashCombo(){
+    if(combo < 2){ comboEl.classList.remove('show'); return; }
+    comboEl.textContent = `🔥 ${combo} 콤보!`;
+    comboEl.classList.add('show');
+    comboEl.style.transform = 'scale(1.25)';
+    setTimeout(() => comboEl.style.transform = 'scale(1)', 120);
+  }
+
+  function updateDanger(){
+    if(missCount >= 4){
+      dangerTint.classList.add('breathing');
+      dangerTint.style.opacity = '';
+    } else {
+      dangerTint.classList.remove('breathing');
+      dangerTint.style.opacity = (missCount * 0.2).toFixed(2);
+    }
+  }
+
+  function updateStats(){
+    stageV.textContent = stage;
+    progV.textContent  = `${solvedThisStage}/${SOLVE_PER_STAGE}`;
+    scoreV.textContent = score;
+    missV.textContent  = `${missCount}/${MAX_MISS}`;
+  }
+
+  function nextStage(){
+    stage++; solvedThisStage = 0;
+    baseSpeed *= 1.18;
+    spawnInterval = Math.max(750, spawnInterval * 0.9);
+    showStageMsg(stage + '단계!');
+    updateStats();
+  }
+
+  function loop(ts){
+    if(!running) return;
+    if(!lastTime) lastTime = ts;
+    const dt = (ts - lastTime) / 1000; lastTime = ts;
+    if(ts - lastSpawn > spawnInterval){ spawn(); lastSpawn = ts; }
+
+    const groundY = game.clientHeight - dockH;
+    for(const p of problems){
+      if(p.dead) continue;
+      p.y += p.speed * dt;
+      p.el.style.top = p.y + 'px';
+      if(p.y >= groundY - p.el.offsetHeight){
+        p.dead = true; p.el.classList.add('miss');
+        const el = p.el; setTimeout(() => el.remove(), 250);
+        missCount++; combo = 0; comboEl.classList.remove('show');
+        updateStats(); updateDanger();
+        if(missCount >= MAX_MISS){ gameOver(); return; }
+      }
+    }
+    problems = problems.filter(p => !p.dead || p.el.isConnected);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function trySolve(){
+    if(!running) return;
+    const val = answer.value.trim(); answer.value = '';
+    if(val === '') return;
+    const num = Number(val);
+    if(Number.isNaN(num)) return;
+    let target = null;
+    for(const p of problems){
+      if(p.dead || p.answer !== num) continue;
+      if(!target || p.y > target.y) target = p;
+    }
+    if(target){
+      target.dead = true; target.el.classList.add('hit');
+      const el = target.el; setTimeout(() => el.remove(), 300);
+      combo++;
+      score += 10 * stage + (combo >= 2 ? combo*2 : 0);
+      solvedThisStage++;
+      flashCombo(); updateStats();
+      if(solvedThisStage >= SOLVE_PER_STAGE) nextStage();
+    } else { combo = 0; comboEl.classList.remove('show'); }
+  }
+
+  function clearAll(){ for(const p of problems) p.el.remove(); problems = []; }
+
+  function resetDanger(){
+    dangerTint.classList.remove('breathing');
+    dangerTint.style.opacity = '0';
+  }
+
+  function start(){
+    clearAll();
+    stage=1; score=0; solvedThisStage=0; missCount=0; combo=0;
+    baseSpeed=55; spawnInterval=2000; lastSpawn=0; lastTime=0;
+    running=true;
+    overlay.classList.add('hidden');
+    answer.value='';
+    comboEl.classList.remove('show');
+    resetDanger();
+    layout();
+    updateStats();
+    showStageMsg('1단계!');
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function showMenu(){
+    running=false;
+    if(rafId) cancelAnimationFrame(rafId);
+    clearAll();
+    answer.value='';
+    comboEl.classList.remove('show');
+    resetDanger();
+    titleEl.textContent = MENU_TITLE;
+    descEl.innerHTML = MENU_DESC;
+    startBtn.textContent = '시작하기';
+    overlay.classList.remove('hidden');
+  }
+
+  function gameOver(){
+    running=false;
+    if(rafId) cancelAnimationFrame(rafId);
+    titleEl.textContent = '게임 오버';
+    descEl.innerHTML =
+      `최종 점수 <b style="color:#0d9488">${score}</b>점 · <b style="color:#16a34a">${stage}</b>단계 도달!`;
+    startBtn.textContent = '다시 하기';
+    overlay.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', () => { if(selectedOps.length) start(); });
+  document.getElementById('delBtn').addEventListener('click', backspace);
+  document.getElementById('okBtn').addEventListener('click', trySolve);
+
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape'){ if(running) showMenu(); return; }
+    if(!running) return;
+    if(/^[0-9]$/.test(e.key)) addDigit(e.key);
+    else if(e.key === 'Backspace'){ backspace(); e.preventDefault(); }
+    else if(e.key === 'Enter') trySolve();
+  });
+
+  layout();
+})();
+</script>
+</body>
+</html>
