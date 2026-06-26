@@ -105,6 +105,12 @@
     border:2px solid var(--mint2); border-radius:12px; outline:none;
   }
   #answer:focus{ border-color:#0d9488; box-shadow:0 0 0 4px rgba(45,212,191,.3); }
+  #answer.wrong{ animation:shake .3s ease; border-color:#ef4444; background:#fee2e2; }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-7px); } 40%{ transform:translateX(7px); }
+    60%{ transform:translateX(-5px); } 80%{ transform:translateX(5px); }
+  }
 
   .act{
     flex:0 0 auto; height:46px; min-width:52px; padding:0 14px;
@@ -430,7 +436,15 @@
       solvedThisStage++;
       flashCombo(); updateStats();
       if(solvedThisStage >= SOLVE_PER_STAGE) nextStage();
-    } else { combo = 0; comboEl.classList.remove('show'); }
+    } else {
+      // 틀린 답: 놓침 1개 차감
+      combo = 0; comboEl.classList.remove('show');
+      answer.classList.remove('wrong'); void answer.offsetWidth;
+      answer.classList.add('wrong');
+      missCount++;
+      updateStats(); updateDanger();
+      if(missCount >= MAX_MISS){ gameOver(); return; }
+    }
   }
 
   function clearAll(){ for(const p of problems) p.el.remove(); problems = []; }
