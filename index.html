@@ -38,11 +38,11 @@
 
   #dangerTint{
     position:absolute; inset:0; pointer-events:none; opacity:0;
-    background:radial-gradient(circle at 50% 110%, rgba(244,63,94,.9), rgba(239,68,68,.45) 55%, rgba(239,68,68,.12) 100%);
+    background:radial-gradient(circle at 50% 115%, rgba(244,63,94,1), rgba(239,68,68,.7) 50%, rgba(239,68,68,.28) 100%);
     transition:opacity .8s ease;
   }
   #dangerTint.breathing{ animation:breathe 2.6s ease-in-out infinite; }
-  @keyframes breathe{ 0%,100%{ opacity:.45; } 50%{ opacity:.92; } }
+  @keyframes breathe{ 0%,100%{ opacity:.6; } 50%{ opacity:1; } }
 
   .problem{
     position:absolute; z-index:2;
@@ -375,7 +375,7 @@
       dangerTint.style.opacity = '';
     } else {
       dangerTint.classList.remove('breathing');
-      dangerTint.style.opacity = (missCount * 0.2).toFixed(2);
+      dangerTint.style.opacity = (missCount * 0.3).toFixed(2);
     }
   }
 
